@@ -1,0 +1,4 @@
+pandas==0.23.3
+tqdm==4.26.0
+requests==2.20.1
+urltools==0.3.2
