@@ -4,7 +4,8 @@ from pathlib import Path
 
 if __name__ == "__main__":
     data_dir = Path("../data")
-    input_files = list(data_dir.glob("Hypothesis*.csv"))
+    input_dir = data_dir / "input"
+    input_files = list(input_dir.glob("Hypothesis*.csv"))
 
     # Parse input CSVs and create spreadsheets for processing
     readings_cols = ["course", "course_title", "instructor", "email", "group", "group_name",
