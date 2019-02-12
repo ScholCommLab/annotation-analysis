@@ -8,15 +8,12 @@ if __name__ == "__main__":
 
     # Parse input CSVs and create spreadsheets for processing
     readings_cols = ["course", "course_title", "instructor", "email", "group", "group_name",
-                     "date", "month", "week", "title", "url"]
+                     "date", "title", "url"]
     readings = pd.DataFrame(columns=readings_cols)
 
     for f in input_files:
         # reading info
         df = pd.read_csv(f, parse_dates=["Date"])
-        df['month'] = df.Date.map(lambda x: x.month)
-        df['week'] = df.Date.map(lambda x: x.week)
-        df['week'] = df['week'] - min(df['week']) + 1
 
         # course info
         course = df["Course Number"][0]
@@ -30,7 +27,7 @@ if __name__ == "__main__":
         for ix, row in df.iterrows():
             for group, group_name in zip(group_ids, group_names):
                 reading = [course, course_title, instructor, email, group, group_name,
-                           row['Date'], row['month'], row['week'], row['Title'], row['Link ']]
+                           row['Date'], row['Title'], row['Link ']]
                 readings.loc[len(readings)] = reading
 
     readings.index.name = "id"
