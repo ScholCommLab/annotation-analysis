@@ -33,53 +33,67 @@ class HypothesisAPI(object):
 
 if __name__ == "__main__":
     # Init
-    Config = configparser.ConfigParser()
-    Config.read('../config.cnf')
+    config = configparser.ConfigParser()
+    config.read('../config.cnf')
 
-    api_key = Config.get('hypothesis', 'api_key')
+    api_key = config.get('hypothesis', 'api_key')
     api = HypothesisAPI(api_key)
 
     # Load input data
     data_dir = Path("../data")
-    readings = pd.read_csv(data_dir / "readings.csv")
+    groups = pd.read_csv(data_dir / "groups.csv")
 
     # Query each URL/group for comments
-    response_cols = ["total", "resp"]
+    response_cols = ["group_name", "course", "short", "total", "resp"]
     responses = pd.DataFrame(columns=response_cols)
 
-    for ix, row in tqdm(list(readings.iterrows()), desc="Querying Hypothes.is"):
-        rows = []
-        offset = 0
+    iterrows = list(groups.iterrows())
+    for ix, row in tqdm(iterrows, desc="Querying Hypothes.is"):
         group = row['group']
+        name = row['group_name']
+        course = row['course']
+        short = row['short_hand']
 
         params = {
-            'url': row['url'],
             'limit': 200,
-            'offset': offset,
+            'offset': 0,
             'group': group
         }
 
         resp = api.search(params)
         total = resp['total']
+
+        rows = []
+        offset = 0
         rows.extend(resp['rows'])
+
+        pbar = tqdm(total=total, desc=name, leave=False)
         while len(rows) < total:
             params['offset'] = params['offset'] + 200
             resp = api.search(params)
             rows.extend(resp['rows'])
+            pbar.update(200)
+        pbar.close()
 
-        responses.loc[ix] = [total, json.dumps(rows)]
-    responses.index.name = "reading_id"
-    responses.to_csv(data_dir / "hypothesis_responses.csv")
+        responses.loc[group] = [name, course, short, total, json.dumps(rows)]
+    responses.index.name = "group"
+    responses.to_csv(data_dir / "raw/api_responses.csv")
 
     # Create dataframe for each comment
-    comments_cols = ["hypothesis_id", "reading_id",
+    comments_cols = ["hypothesis_id", "group", "group_name", "course", "short",
                      "user", "text", "created", "updated", "references"]
-    comments = pd.DataFrame(columns=comments_cols)
 
     for ix, row in tqdm(list(responses.iterrows()), desc="Parsing annotations"):
+        comments = pd.DataFrame(columns=comments_cols)
+        group = ix
+        course = row['course']
+        group_name = row['group_name']
+        total = row['total']
+        short = row['short']
+
         rows = json.loads(row['resp'])
-        reading_id = int(ix)
-        for r in rows:
+
+        for r in tqdm(rows, total=total, desc=group_name, leave=False):
             hypothesis_id = r['id']
             user = r['user'][5:-12]
             text = "".join(r['text'])
@@ -90,9 +104,9 @@ if __name__ == "__main__":
             else:
                 references = None
 
-            comment = [hypothesis_id, reading_id, user, text, created, updated, references]
+            comment = [hypothesis_id, group, group_name, course, short,
+                       user, text, created, updated, references]
             comments.loc[len(comments)] = comment
 
-    # comments['in_class'] = comments.user.map(lambda x: x in list(usernames))
-    comments.index.name = "id"
-    comments.to_csv("../data/comments.csv")
+        comments.index.name = "id"
+        comments.to_csv("../data/comments/{}.csv".format(short))
